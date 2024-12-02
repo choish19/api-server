@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -20,12 +21,15 @@ import com.nas.manager.model.FileInfo;
 import com.nas.manager.model.User;
 import com.nas.manager.repository.FileRepository;
 import com.nas.manager.repository.UserRepository;
+import com.nas.manager.util.LogUtil;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class FileService {
+    private static final Logger logger = LogUtil.getLogger(FileService.class);
+
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final Path fileStorageLocation;
@@ -51,17 +55,23 @@ public class FileService {
             FileInfo savedFile = fileRepository.save(fileInfo);
             return mapToFileResponse(savedFile);
         } catch (Exception e) {
+            logger.error("파일 저장 중 오류 발생", e);
             throw new RuntimeException("Could not store file", e);
         }
     }
 
     public List<FileResponse> getAllFiles(Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            User user = userRepository.findByUsername(authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return fileRepository.findAll().stream()
-                .map(this::mapToFileResponse)
-                .collect(Collectors.toList());
+            return fileRepository.findAll().stream()
+                    .map(this::mapToFileResponse)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("모든 파일 가져오기 중 오류 발생", e);
+            throw e;
+        }
     }
 
     public ResponseEntity<Resource> getFile(Long id, Authentication authentication) {
@@ -84,22 +94,33 @@ public class FileService {
                 throw new RuntimeException("File not found");
             }
         } catch (Exception e) {
+            logger.error("파일 다운로드 중 오류 발생", e);
             throw new RuntimeException("File could not be downloaded", e);
         }
     }
 
     public FileResponse toggleBookmark(Long id, Authentication authentication) {
-        FileInfo fileInfo = fileRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("File not found"));
-        fileInfo.setBookmarked(!fileInfo.getBookmarked());
-        return mapToFileResponse(fileRepository.save(fileInfo));
+        try {
+            FileInfo fileInfo = fileRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("File not found"));
+            fileInfo.setBookmarked(!fileInfo.getBookmarked());
+            return mapToFileResponse(fileRepository.save(fileInfo));
+        } catch (Exception e) {
+            logger.error("북마크 토글 중 오류 발생", e);
+            throw e;
+        }
     }
 
     public FileResponse incrementRecommendations(Long id, Authentication authentication) {
-        FileInfo fileInfo = fileRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("File not found"));
-        fileInfo.setRecommendations(fileInfo.getRecommendations() + 1);
-        return mapToFileResponse(fileRepository.save(fileInfo));
+        try {
+            FileInfo fileInfo = fileRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("File not found"));
+            fileInfo.setRecommendations(fileInfo.getRecommendations() + 1);
+            return mapToFileResponse(fileRepository.save(fileInfo));
+        } catch (Exception e) {
+            logger.error("추천 수 증가 중 오류 발생", e);
+            throw e;
+        }
     }
 
     private FileResponse mapToFileResponse(FileInfo fileInfo) {
