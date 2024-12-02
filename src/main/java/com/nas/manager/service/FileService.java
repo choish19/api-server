@@ -14,11 +14,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.nas.manager.dto.FileResponse;
+import com.nas.manager.model.Bookmark;
 import com.nas.manager.model.FileInfo;
 import com.nas.manager.model.User;
+import com.nas.manager.repository.BookmarkRepository;
 import com.nas.manager.repository.FileRepository;
 import com.nas.manager.repository.UserRepository;
 import com.nas.manager.util.LogUtil;
@@ -33,6 +36,7 @@ public class FileService {
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final Path fileStorageLocation;
+    private final BookmarkRepository bookmarkRepository;
 
     public FileResponse storeFile(MultipartFile file, String description, List<String> tags, Authentication authentication) {
         try {
@@ -53,7 +57,7 @@ public class FileService {
             fileInfo.setUser(user);
 
             FileInfo savedFile = fileRepository.save(fileInfo);
-            return mapToFileResponse(savedFile);
+            return mapToFileResponse(savedFile, false);
         } catch (Exception e) {
             logger.error("파일 저장 중 오류 발생", e);
             throw new RuntimeException("Could not store file", e);
@@ -65,8 +69,14 @@ public class FileService {
             User user = userRepository.findByUsername(authentication.getName())
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            List<Bookmark> userBookmarks = bookmarkRepository.findByUser(user);
+
             return fileRepository.findAll().stream()
-                    .map(this::mapToFileResponse)
+                    .map(fileInfo -> {
+                        boolean isBookmarked = userBookmarks.stream()
+                                .anyMatch(bookmark -> bookmark.getFile().getId().equals(fileInfo.getId()));
+                        return mapToFileResponse(fileInfo, isBookmarked);
+                    })
                     .collect(Collectors.toList());
         } catch (Exception e) {
             logger.error("모든 파일 가져오기 중 오류 발생", e);
@@ -99,31 +109,53 @@ public class FileService {
         }
     }
 
-    public FileResponse toggleBookmark(Long id, Authentication authentication) {
-        try {
-            FileInfo fileInfo = fileRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("File not found"));
-            fileInfo.setBookmarked(!fileInfo.getBookmarked());
-            return mapToFileResponse(fileRepository.save(fileInfo));
-        } catch (Exception e) {
-            logger.error("북마크 토글 중 오류 발생", e);
-            throw e;
-        }
-    }
-
     public FileResponse incrementRecommendations(Long id, Authentication authentication) {
         try {
             FileInfo fileInfo = fileRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("File not found"));
             fileInfo.setRecommendations(fileInfo.getRecommendations() + 1);
-            return mapToFileResponse(fileRepository.save(fileInfo));
+
+            return mapToFileResponse(fileRepository.save(fileInfo), fileInfo.getBookmarked());
         } catch (Exception e) {
             logger.error("추천 수 증가 중 오류 발생", e);
             throw e;
         }
     }
 
-    private FileResponse mapToFileResponse(FileInfo fileInfo) {
+    public void addBookmark(Long fileId, Authentication authentication) {
+        FileInfo fileInfo = fileRepository.findById(fileId)
+            .orElseThrow(() -> new RuntimeException("File not found"));
+            
+        if (fileInfo.getBookmarkCount() == null) {
+            fileInfo.setBookmarkCount(0);
+        }
+
+        User user = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        FileInfo file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("File not found"));
+
+        Bookmark bookmark = new Bookmark();
+        bookmark.setUser(user);
+        bookmark.setFile(file);
+        file.setBookmarkCount(file.getBookmarkCount() + 1);
+
+        fileRepository.save(file);
+        bookmarkRepository.save(bookmark);
+    }
+
+    @Transactional
+    public void removeBookmark(Long fileId, Authentication authentication) {
+        User user = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        bookmarkRepository.deleteByUserIdAndFileId(user.getId(), fileId);
+        FileInfo file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("File not found"));
+        file.setBookmarkCount(file.getBookmarkCount() - 1);
+        fileRepository.save(file);
+    }
+
+    private FileResponse mapToFileResponse(FileInfo fileInfo, boolean isBookmarked) {
         return FileResponse.builder()
                 .id(fileInfo.getId())
                 .name(fileInfo.getName())
@@ -134,7 +166,8 @@ public class FileService {
                 .lastAccessed(fileInfo.getLastAccessed())
                 .accessCount(fileInfo.getAccessCount())
                 .recommendations(fileInfo.getRecommendations())
-                .bookmarked(fileInfo.getBookmarked())
+                .bookmarked(isBookmarked)
+                .bookmarkCount(fileInfo.getBookmarkCount())
                 .tags(fileInfo.getTags())
                 .build();
     }

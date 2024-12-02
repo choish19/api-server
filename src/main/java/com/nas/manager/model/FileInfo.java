@@ -35,6 +35,7 @@ public class FileInfo {
     private Integer accessCount = 0;
     private Integer recommendations = 0;
     private Boolean bookmarked = false;
+    private Integer bookmarkCount = 0;
 
     @ElementCollection
     private Set<String> tags;
