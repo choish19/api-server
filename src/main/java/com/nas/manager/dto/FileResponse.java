@@ -21,4 +21,5 @@ public class FileResponse {
     private Boolean bookmarked;
     private Integer bookmarkCount;
     private Set<String> tags;
+    private LocalDateTime watchedAt;
 }

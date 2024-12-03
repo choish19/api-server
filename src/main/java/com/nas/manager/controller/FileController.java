@@ -47,9 +47,25 @@ public class FileController {
         return fileService.getFile(id, authentication);
     }
 
+    @GetMapping("/history")
+    public ResponseEntity<List<FileResponse>> getFilesWithHistory(Authentication authentication) {
+        return ResponseEntity.ok(fileService.getFilesWithHistory(authentication));
+    }
+
+    @GetMapping("/bookmarks")
+    public ResponseEntity<List<FileResponse>> getFilesWithBookmarks(Authentication authentication) {
+        return ResponseEntity.ok(fileService.getFilesWithBookmarks(authentication));
+    }
+
     @PutMapping("/{id}/recommend")
     public ResponseEntity<?> incrementRecommendations(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(fileService.incrementRecommendations(id, authentication));
+    }
+
+    @PostMapping("/{id}/watch")
+    public ResponseEntity<?> recordWatchHistory(@PathVariable("id") Long id, Authentication authentication) {
+        fileService.recordWatchHistory(id, authentication);
+        return ResponseEntity.ok("Watch history recorded");
     }
 
     @PostMapping("/{id}/bookmark")
