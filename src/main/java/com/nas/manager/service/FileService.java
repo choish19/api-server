@@ -83,9 +83,14 @@ public class FileService {
     public List<FileResponse> getFilesWithHistory(Authentication authentication) {
         User user = getUser(authentication);
         List<WatchHistory> watchHistories = watchHistoryRepository.findByUser(user);
+        List<Bookmark> userBookmarks = bookmarkRepository.findByUser(user);
 
         return watchHistories.stream()
-                .map(watchHistory -> mapToFileResponse(watchHistory.getFile(), watchHistory.getFile().getBookmarked(), watchHistory.getWatchedAt()))
+                .map(watchHistory -> {
+                    FileInfo fileInfo = watchHistory.getFile();
+                    boolean isBookmarked = isBookmarked(userBookmarks, fileInfo);
+                    return mapToFileResponse(fileInfo, isBookmarked, watchHistory.getWatchedAt());
+                })
                 .collect(Collectors.toList());
     }
 
