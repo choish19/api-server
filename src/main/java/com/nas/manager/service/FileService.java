@@ -10,6 +10,10 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.nas.manager.dto.FileResponse;
+import com.nas.manager.dto.PageRequestDto;
+import com.nas.manager.dto.PageResponse;
 import com.nas.manager.model.Bookmark;
 import com.nas.manager.model.FileInfo;
 import com.nas.manager.model.User;
@@ -66,14 +72,36 @@ public class FileService {
         }
     }
 
-    public List<FileResponse> getAllFiles(Authentication authentication) {
+    public PageResponse<FileResponse> getAllFiles(Authentication authentication, PageRequestDto request) {
         try {
             User user = getUser(authentication);
             List<Bookmark> userBookmarks = bookmarkRepository.findByUser(user);
 
-            return fileRepository.findAll().stream()
+            Sort sort = Sort.by(
+                Sort.Direction.fromString(request.getDirection()),
+                request.getSortBy()
+            );
+
+            Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                sort
+            );
+
+            Page<FileInfo> filePage = fileRepository.findAll(pageable);
+
+            List<FileResponse> content = filePage.getContent().stream()
                     .map(fileInfo -> mapToFileResponse(fileInfo, isBookmarked(userBookmarks, fileInfo)))
                     .collect(Collectors.toList());
+
+            return PageResponse.<FileResponse>builder()
+                    .content(content)
+                    .pageNumber(filePage.getNumber())
+                    .pageSize(filePage.getSize())
+                    .totalElements(filePage.getTotalElements())
+                    .totalPages(filePage.getTotalPages())
+                    .last(filePage.isLast())
+                    .build();
         } catch (Exception e) {
             logger.error("모든 파일 가져오기 중 오류 발생", e);
             throw e;

@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.nas.manager.dto.FileResponse;
+import com.nas.manager.dto.PageRequestDto;
+import com.nas.manager.dto.PageResponse;
 import com.nas.manager.service.FileService;
 
 import lombok.RequiredArgsConstructor;
@@ -38,8 +40,19 @@ public class FileController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FileResponse>> getAllFiles(Authentication authentication) {
-        return ResponseEntity.ok(fileService.getAllFiles(authentication));
+    public ResponseEntity<PageResponse<FileResponse>> getAllFiles(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "lastAccessed") String sortBy,
+            @RequestParam(defaultValue = "DESC") String direction) {
+        PageRequestDto pageRequest = new PageRequestDto();
+        pageRequest.setPage(page);
+        pageRequest.setSize(size);
+        pageRequest.setSortBy(sortBy);
+        pageRequest.setDirection(direction);
+        
+        return ResponseEntity.ok(fileService.getAllFiles(authentication, pageRequest));
     }
 
     @GetMapping("/{id}")
