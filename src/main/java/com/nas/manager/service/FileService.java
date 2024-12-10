@@ -185,13 +185,19 @@ public class FileService {
         initializeBookmarkCount(fileInfo);
 
         User user = getUser(authentication);
-        Bookmark bookmark = new Bookmark();
-        bookmark.setUser(user);
-        bookmark.setFile(fileInfo);
-        fileInfo.setBookmarkCount(fileInfo.getBookmarkCount() + 1);
 
-        fileRepository.save(fileInfo);
-        bookmarkRepository.save(bookmark);
+        boolean exists = bookmarkRepository.existsByUserAndFile(user, fileInfo);
+        if (!exists) {
+            Bookmark bookmark = new Bookmark();
+            bookmark.setUser(user);
+            bookmark.setFile(fileInfo);
+            fileInfo.setBookmarkCount(fileInfo.getBookmarkCount() + 1);
+
+            fileRepository.save(fileInfo);
+            bookmarkRepository.save(bookmark);
+        } else {
+            logger.info("이미 북마크가 존재합니다: userId={}, fileId={}", user.getId(), fileId);
+        }
     }
 
     @Transactional
