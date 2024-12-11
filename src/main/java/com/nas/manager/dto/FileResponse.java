@@ -13,6 +13,7 @@ public class FileResponse {
     private String name;
     private String type;
     private String url;
+    private String path;
     private String thumbnail;
     private String description;
     private LocalDateTime lastAccessed;

@@ -232,6 +232,7 @@ public class FileService {
                 .name(fileInfo.getName())
                 .type(fileInfo.getType())
                 .url("/api/files/" + fileInfo.getId())
+                .path(fileInfo.getPath())
                 .thumbnail(fileInfo.getThumbnail())
                 .description(fileInfo.getDescription())
                 .lastAccessed(fileInfo.getLastAccessed())
