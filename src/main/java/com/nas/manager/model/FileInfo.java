@@ -34,7 +34,7 @@ public class FileInfo {
     private String path;
     private String thumbnail;
     private String description;
-    private LocalDateTime lastAccessed;
+    private LocalDateTime lastWriteTime;
     private Integer accessCount = 0;
     private Integer recommendations = 0;
     private Boolean bookmarked = false;

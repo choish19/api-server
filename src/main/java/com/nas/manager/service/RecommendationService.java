@@ -2,8 +2,6 @@ package com.nas.manager.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -50,7 +48,7 @@ public class RecommendationService {
         List<FileInfo> recommendations = new ArrayList<>();
         
         // 1. 최신 파일들 (30%)
-        List<FileInfo> recentFiles = fileRepository.findTop3ByOrderByLastAccessedDesc();
+        List<FileInfo> recentFiles = fileRepository.findTop3ByOrderByLastWriteTimeDesc();
         recommendations.addAll(recentFiles);
         
         // 2. 가장 인기있는 파일들 (40%)
@@ -118,8 +116,8 @@ public class RecommendationService {
         
         // 3. 시간 가중치 (최근 파일에 더 높은 점수)
         LocalDateTime now = LocalDateTime.now();
-        if (file.getLastAccessed() != null) {
-            long daysDifference = java.time.Duration.between(file.getLastAccessed(), now).toDays();
+        if (file.getLastWriteTime() != null) {
+            long daysDifference = java.time.Duration.between(file.getLastWriteTime(), now).toDays();
             score += Math.max(0, 1.0 - (daysDifference / 30.0)) * 0.3;
         }
         

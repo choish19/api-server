@@ -60,7 +60,7 @@ public class FileService {
             fileInfo.setPath(fileName);
             fileInfo.setDescription(description);
             fileInfo.setTags(Set.copyOf(tags));
-            fileInfo.setLastAccessed(LocalDateTime.now());
+            fileInfo.setLastWriteTime(LocalDateTime.now());
             fileInfo.setUser(user);
 
             FileInfo savedFile = fileRepository.save(fileInfo);
@@ -235,7 +235,7 @@ public class FileService {
                 .path(fileInfo.getPath())
                 .thumbnail(fileInfo.getThumbnail())
                 .description(fileInfo.getDescription())
-                .lastAccessed(fileInfo.getLastAccessed())
+                .lastWriteTime(fileInfo.getLastWriteTime())
                 .accessCount(fileInfo.getAccessCount())
                 .recommendations(fileInfo.getRecommendations())
                 .bookmarked(isBookmarked)
@@ -262,7 +262,6 @@ public class FileService {
 
     private void updateFileAccess(FileInfo fileInfo) {
         fileInfo.setAccessCount(fileInfo.getAccessCount() + 1);
-        fileInfo.setLastAccessed(LocalDateTime.now());
         fileRepository.save(fileInfo);
     }
 

@@ -15,7 +15,7 @@ public interface FileRepository extends JpaRepository<FileInfo, Long> {
     List<FileInfo> findByUser(User user);
     Page<FileInfo> findByUser(User user, Pageable pageable);
     
-    List<FileInfo> findTop3ByOrderByLastAccessedDesc();
+    List<FileInfo> findTop3ByOrderByLastWriteTimeDesc();
     
     @Query(value = "SELECT * FROM files ORDER BY RAND() LIMIT :limit", nativeQuery = true)
     List<FileInfo> findRandomFiles(@Param("limit") int limit);

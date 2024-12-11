@@ -43,7 +43,7 @@ public class FileController {
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "lastAccessed") String sortBy,
+            @RequestParam(defaultValue = "lastWriteTime") String sortBy,
             @RequestParam(defaultValue = "DESC") String direction) {
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPage(page);

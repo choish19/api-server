@@ -16,7 +16,7 @@ public class FileResponse {
     private String path;
     private String thumbnail;
     private String description;
-    private LocalDateTime lastAccessed;
+    private LocalDateTime lastWriteTime;
     private Integer accessCount;
     private Integer recommendations;
     private Boolean bookmarked;
