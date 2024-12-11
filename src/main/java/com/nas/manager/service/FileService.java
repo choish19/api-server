@@ -8,14 +8,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +23,11 @@ import com.nas.manager.dto.PageResponse;
 import com.nas.manager.model.Bookmark;
 import com.nas.manager.model.FileInfo;
 import com.nas.manager.model.User;
+import com.nas.manager.model.UserFileTag;
 import com.nas.manager.model.WatchHistory;
 import com.nas.manager.repository.BookmarkRepository;
 import com.nas.manager.repository.FileRepository;
+import com.nas.manager.repository.UserFileTagRepository;
 import com.nas.manager.repository.UserRepository;
 import com.nas.manager.repository.WatchHistoryRepository;
 import com.nas.manager.util.LogUtil;
@@ -46,6 +44,7 @@ public class FileService {
     private final Path fileStorageLocation;
     private final WatchHistoryRepository watchHistoryRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final UserFileTagRepository userFileTagRepository;
 
     public FileResponse storeFile(MultipartFile file, String description, List<String> tags, Authentication authentication) {
         try {
@@ -76,6 +75,7 @@ public class FileService {
         try {
             User user = getUser(authentication);
             List<Bookmark> userBookmarks = bookmarkRepository.findByUser(user);
+            List<WatchHistory> watchHistories = watchHistoryRepository.findByUser(user);
 
             Sort sort = Sort.by(
                 Sort.Direction.fromString(request.getDirection()),
@@ -91,7 +91,12 @@ public class FileService {
             Page<FileInfo> filePage = fileRepository.findAll(pageable);
 
             List<FileResponse> content = filePage.getContent().stream()
-                    .map(fileInfo -> mapToFileResponse(fileInfo, isBookmarked(userBookmarks, fileInfo)))
+                    .map(fileInfo -> {
+                        boolean isBookmarked = isBookmarked(userBookmarks, fileInfo);
+                        LocalDateTime watchedAt = getWatchedAt(watchHistories, fileInfo);
+                        Set<String> userTags = getFileTags(user, fileInfo);
+                        return mapToFileResponse(fileInfo, isBookmarked, userTags, watchedAt);
+                    })
                     .collect(Collectors.toList());
 
             return PageResponse.<FileResponse>builder()
@@ -117,7 +122,8 @@ public class FileService {
                 .map(watchHistory -> {
                     FileInfo fileInfo = watchHistory.getFile();
                     boolean isBookmarked = isBookmarked(userBookmarks, fileInfo);
-                    return mapToFileResponse(fileInfo, isBookmarked, watchHistory.getWatchedAt());
+                    Set<String> userTags = getFileTags(user, fileInfo);
+                    return mapToFileResponse(fileInfo, isBookmarked, userTags, watchHistory.getWatchedAt());
                 })
                 .collect(Collectors.toList());
     }
@@ -125,30 +131,37 @@ public class FileService {
     public List<FileResponse> getFilesWithBookmarks(Authentication authentication) {
         User user = getUser(authentication);
         List<Bookmark> bookmarks = bookmarkRepository.findByUser(user);
+        List<WatchHistory> watchHistories = watchHistoryRepository.findByUser(user);
+
         return bookmarks.stream()
-                .map(bookmark -> mapToFileResponse(bookmark.getFile(), true))
+                .map(bookmark -> {
+                    FileInfo fileInfo = bookmark.getFile();
+                    LocalDateTime watchedAt = getWatchedAt(watchHistories, fileInfo);
+                    Set<String> userTags = getFileTags(user, fileInfo);
+                    return mapToFileResponse(fileInfo, true, userTags, watchedAt);
+                })
                 .collect(Collectors.toList());
     }
 
-    public ResponseEntity<Resource> getFile(Long id, Authentication authentication) {
-        try {
-            FileInfo fileInfo = getFileInfo(id);
-            Path filePath = fileStorageLocation.resolve(fileInfo.getPath());
-            Resource resource = new UrlResource(filePath.toUri());
+    // public ResponseEntity<Resource> getFile(Long id, Authentication authentication) {
+    //     try {
+    //         FileInfo fileInfo = getFileInfo(id);
+    //         Path filePath = fileStorageLocation.resolve(fileInfo.getPath());
+    //         Resource resource = new UrlResource(filePath.toUri());
 
-            if (resource.exists()) {
-                updateFileAccess(fileInfo);
-                return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileInfo.getName() + "\"")
-                        .body(resource);
-            } else {
-                throw new RuntimeException("File not found");
-            }
-        } catch (Exception e) {
-            logger.error("파일 다운로드 중 오류 발생", e);
-            throw new RuntimeException("File could not be downloaded", e);
-        }
-    }
+    //         if (resource.exists()) {
+    //             updateFileAccess(fileInfo);
+    //             return ResponseEntity.ok()
+    //                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileInfo.getName() + "\"")
+    //                     .body(resource);
+    //         } else {
+    //             throw new RuntimeException("File not found");
+    //         }
+    //     } catch (Exception e) {
+    //         logger.error("파일 다운로드 중 오류 발생", e);
+    //         throw new RuntimeException("File could not be downloaded", e);
+    //     }
+    // }
 
     public FileResponse incrementRecommendations(Long id, Authentication authentication) {
         try {
@@ -209,11 +222,11 @@ public class FileService {
         fileRepository.save(file);
     }
 
-    private FileResponse mapToFileResponse(FileInfo fileInfo, boolean isBookmarked) {
-        return mapToFileResponse(fileInfo, isBookmarked, null);
+    public FileResponse mapToFileResponse(FileInfo fileInfo, boolean isBookmarked) {
+        return mapToFileResponse(fileInfo, isBookmarked, null, null);
     }
 
-    private FileResponse mapToFileResponse(FileInfo fileInfo, boolean isBookmarked, LocalDateTime watchedAt) {
+    private FileResponse mapToFileResponse(FileInfo fileInfo, boolean isBookmarked, Set<String> tags, LocalDateTime watchedAt) {
         return FileResponse.builder()
                 .id(fileInfo.getId())
                 .name(fileInfo.getName())
@@ -226,7 +239,7 @@ public class FileService {
                 .recommendations(fileInfo.getRecommendations())
                 .bookmarked(isBookmarked)
                 .bookmarkCount(fileInfo.getBookmarkCount())
-                .tags(fileInfo.getTags())
+                .tags(tags != null ? tags : fileInfo.getTags())
                 .watchedAt(watchedAt)
                 .build();
     }
@@ -256,5 +269,20 @@ public class FileService {
         if (fileInfo.getBookmarkCount() == null) {
             fileInfo.setBookmarkCount(0);
         }
+    }
+
+    public Set<String> getFileTags(User user, FileInfo file) {
+        return userFileTagRepository.findByUserAndFile(user, file)
+                .stream()
+                .map(UserFileTag::getTag)
+                .collect(Collectors.toSet());
+    }
+
+    private LocalDateTime getWatchedAt(List<WatchHistory> watchHistories, FileInfo fileInfo) {
+        return watchHistories.stream()
+                .filter(watchHistory -> watchHistory.getFile().getId().equals(fileInfo.getId()))
+                .map(WatchHistory::getWatchedAt)
+                .findFirst()
+                .orElse(null);
     }
 }

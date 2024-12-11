@@ -2,7 +2,6 @@ package com.nas.manager.controller;
 
 import java.util.List;
 
-import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -55,10 +54,10 @@ public class FileController {
         return ResponseEntity.ok(fileService.getAllFiles(authentication, pageRequest));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Resource> getFile(@PathVariable Long id, Authentication authentication) {
-        return fileService.getFile(id, authentication);
-    }
+    // @GetMapping("/{id}")
+    // public ResponseEntity<Resource> getFile(@PathVariable Long id, Authentication authentication) {
+    //     return fileService.getFileInfo(id, authentication);
+    // }
 
     @GetMapping("/history")
     public ResponseEntity<List<FileResponse>> getFilesWithHistory(Authentication authentication) {
